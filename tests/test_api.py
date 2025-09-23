@@ -3,6 +3,7 @@
 
 import pytest
 import requests
+import os
 import sys
 from pathlib import Path
 import time
@@ -94,6 +95,55 @@ class TestAPIEndpoints:
         assert "model_loaded" in data
         assert "version" in data
         assert data["version"] == "1.0.0"
+
+    def test_feedback_endpoint(self):
+        """Test du endpoint /api/feedback (200 attendu)"""
+        headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
+        payload = {
+            "feedback": "positive",
+            "resultat_prediction": 0.75,
+            "input_user": "test_image.jpg"
+        }
+        response = requests.post(f"{BASE_URL}/api/feedback", json=payload, headers=headers, timeout=10)
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("status") == "received"
+
+    def test_feedback_db_integration(self):
+        """Teste l'insertion DB. Exécuté seulement si RUN_DB_TESTS=1."""
+        if os.environ.get("RUN_DB_TESTS", "0") != "1":
+            pytest.skip("Définir RUN_DB_TESTS=1 pour exécuter le test d'intégration DB")
+
+        import importlib
+        from config.settings import DB_CONFIG
+
+        try:
+            psycopg = importlib.import_module("psycopg")
+        except Exception as e:
+            pytest.fail(f"psycopg manquant: {e}")
+
+        try:
+            with psycopg.connect(
+                host=DB_CONFIG["host"],
+                port=DB_CONFIG["port"],
+                dbname=DB_CONFIG["dbname"],
+                user=DB_CONFIG["user"],
+                password=DB_CONFIG["password"],
+                connect_timeout=5
+            ) as conn:
+                with conn.cursor() as cur:
+                    headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
+                    payload = {"feedback": "negative", "resultat_prediction": 0.42, "input_user": "test_integration.jpg"}
+                    r = requests.post(f"{BASE_URL}/api/feedback", json=payload, headers=headers, timeout=10)
+                    assert r.status_code == 200
+                    cur.execute("SELECT feedback, resultat_prediction, input_user FROM Feedback_user ORDER BY id_feedback_user DESC LIMIT 1")
+                    row = cur.fetchone()
+                    assert row is not None, "Aucune ligne trouvée dans Feedback_user"
+        except Exception as e:
+            pytest.fail(
+                "Connexion DB ou vérification échouée. Vérifie DB_CONFIG, schéma et accès.\n"
+                f"Erreur: {e}"
+            )
 
 class TestAuthentication:
     """Tests d'authentification"""

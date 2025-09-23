@@ -4,6 +4,9 @@ from fastapi.templating import Jinja2Templates
 import sys
 from pathlib import Path
 import time
+from enum import Enum
+from pydantic import BaseModel
+import importlib
 
 # Ajouter le répertoire racine au path
 ROOT_DIR = Path(__file__).parent.parent.parent
@@ -11,7 +14,8 @@ sys.path.insert(0, str(ROOT_DIR))
 
 from .auth import verify_token
 from src.models.predictor import CatDogPredictor
-from src.monitoring.metrics import time_inference, log_inference_time
+from src.monitoring.metrics import time_inference, log_inference_time, read_last_inference_metrics
+from config.settings import DB_CONFIG
 
 # Configuration des templates
 TEMPLATES_DIR = ROOT_DIR / "src" / "web" / "templates"
@@ -71,7 +75,7 @@ async def predict_api(
     try:
         image_data = await file.read()
         result = predictor.predict(image_data)
-        
+
         response_data = {
             "filename": file.filename,
             "prediction": result["prediction"],
@@ -81,34 +85,11 @@ async def predict_api(
                 "dog": f"{result['probabilities']['dog']:.2%}"
             }
         }
-        
-        return response_data
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur de prédiction: {str(e)}")
 
-        # Logger les métriques
-        log_inference_time(
-            inference_time_ms=inference_time_ms,
-            filename=file.filename,
-            prediction=result["prediction"],
-            confidence=f"{result['confidence']:.2%}",
-            success=True
-        )
-        
         return response_data
-        
+
     except Exception as e:
-        # En cas d'erreur, logger quand même le temps
-        end_time = time.perf_counter()
-        inference_time_ms = (end_time - start_time) * 1000
-        
-        log_inference_time(
-            inference_time_ms=inference_time_ms,
-            filename=file.filename if file else "unknown",
-            success=False
-        )
-        
+        # Simple gestion d'erreur sans code unreachable
         raise HTTPException(status_code=500, detail=f"Erreur de prédiction: {str(e)}")
 
 @router.get("/api/info")
@@ -128,3 +109,76 @@ async def health_check():
         "status": "healthy",
         "model_loaded": predictor.is_loaded()
     }
+    
+class FeedbackType(str, Enum):
+    positive = "positive"
+    negative = "negative"
+
+
+class FeedbackRequest(BaseModel):
+    feedback: FeedbackType
+    resultat_prediction: float
+    input_user: str
+
+
+class FeedbackResponse(BaseModel):
+    status: str
+    feedback: FeedbackType
+    resultat_prediction: float
+    input_user: str
+    timestamp: float
+
+
+@router.post("/api/feedback", response_model=FeedbackResponse)
+async def feedback_api(payload: FeedbackRequest, token: str = Depends(verify_token)):
+    """Endpoint de feedback utilisateur pour confirmer/infirmer la prédiction.
+
+    Actuellement, l'API accuse réception et retourne l'écho des données.
+    (Point d'extension: persister le feedback en base ou le logger.)
+    """
+    # Optionnel: récupérer la dernière métrique d'inférence
+    last_metrics = read_last_inference_metrics()
+
+    # Insérer en base (PostgreSQL)
+    try:
+        psycopg = importlib.import_module("psycopg")
+        with psycopg.connect(
+            host=DB_CONFIG["host"],
+            port=DB_CONFIG["port"],
+            dbname=DB_CONFIG["dbname"],
+            user=DB_CONFIG["user"],
+            password=DB_CONFIG["password"],
+        ) as conn:
+            with conn.cursor() as cur:
+                # Préparer métriques si présentes
+                inference_time_ms = None
+                success = None
+                if last_metrics:
+                    inference_time_ms = float(last_metrics.get("inference_time_ms")) if last_metrics.get("inference_time_ms") is not None else None
+                    success = bool(last_metrics.get("success")) if last_metrics.get("success") is not None else None
+
+                cur.execute(
+                    """
+                    INSERT INTO feedback_user (feedback, date_feedback, resultat_prediction, input_user, inference_time_ms, success)
+                    VALUES (%s, CURRENT_DATE, %s, %s, %s, %s)
+                    """,
+                    (
+                        True if payload.feedback == FeedbackType.positive else False,
+                        float(payload.resultat_prediction),
+                        payload.input_user,
+                        inference_time_ms,
+                        success,
+                    ),
+                )
+                conn.commit()
+    except Exception as e:
+        # Ne pas bloquer la réponse si la DB échoue; on répond quand même
+        pass
+
+    return FeedbackResponse(
+        status="received",
+        feedback=payload.feedback,
+        resultat_prediction=payload.resultat_prediction,
+        input_user=payload.input_user,
+        timestamp=time.time(),
+    )
