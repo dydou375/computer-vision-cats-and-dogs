@@ -4,6 +4,7 @@
 import pytest
 import requests
 import os
+import os
 import sys
 from pathlib import Path
 import time
@@ -50,9 +51,15 @@ def check_api_running():
     try:
         response = requests.get(f"{BASE_URL}/health", timeout=5)
         if response.status_code != 200:
+            # Si on force les tests DB, ne pas skip la session
+            if os.environ.get("RUN_DB_TESTS", "0") == "1":
+                return
             pytest.skip("API non accessible")
     except requests.exceptions.RequestException:
-        pytest.skip("API non démarrée. Lancez: python scripts/run_api.py")
+            # Si on force les tests DB, ne pas skip la session
+            if os.environ.get("RUN_DB_TESTS", "0") == "1":
+                return
+            pytest.skip("API non démarrée. Lancez: python scripts/run_api.py")
 
 @pytest.fixture
 def test_image():
@@ -117,13 +124,20 @@ class TestAPIEndpoints:
         import importlib
         from config.settings import DB_CONFIG
 
+        # Import fallback: psycopg puis psycopg2
+        connect = None
         try:
-            psycopg = importlib.import_module("psycopg")
-        except Exception as e:
-            pytest.fail(f"psycopg manquant: {e}")
+            dbmod = importlib.import_module("psycopg")
+            connect = dbmod.connect
+        except Exception:
+            try:
+                dbmod = importlib.import_module("psycopg2")
+                connect = dbmod.connect
+            except Exception as e:
+                pytest.fail(f"Driver PostgreSQL manquant (psycopg ou psycopg2): {e}")
 
         try:
-            with psycopg.connect(
+            with connect(
                 host=DB_CONFIG["host"],
                 port=DB_CONFIG["port"],
                 dbname=DB_CONFIG["dbname"],
@@ -133,12 +147,19 @@ class TestAPIEndpoints:
             ) as conn:
                 with conn.cursor() as cur:
                     headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
-                    payload = {"feedback": "negative", "resultat_prediction": 0.42, "input_user": "test_integration.jpg"}
+                    unique_input = "test_integration.jpg"
+                    payload = {"feedback": "negative", "resultat_prediction": 0.42, "input_user": unique_input}
                     r = requests.post(f"{BASE_URL}/api/feedback", json=payload, headers=headers, timeout=10)
                     assert r.status_code == 200
-                    cur.execute("SELECT feedback, resultat_prediction, input_user FROM Feedback_user ORDER BY id_feedback_user DESC LIMIT 1")
+                    body = r.json()
+                    assert body.get("status") == "received"
+                    assert body.get("saved_to_db") in [True, False]
+                    # Petite latence pour laisser la transaction se finaliser dans certains environnements
+                    import time as _t
+                    _t.sleep(0.2)
+                    cur.execute("SELECT feedback, resultat_prediction, input_user FROM Feedback_user WHERE input_user = %s ORDER BY id_feedback_user DESC LIMIT 1", (unique_input,))
                     row = cur.fetchone()
-                    assert row is not None, "Aucune ligne trouvée dans Feedback_user"
+                    assert row is not None, "Aucune ligne correspondante insérée dans Feedback_user"
         except Exception as e:
             pytest.fail(
                 "Connexion DB ou vérification échouée. Vérifie DB_CONFIG, schéma et accès.\n"

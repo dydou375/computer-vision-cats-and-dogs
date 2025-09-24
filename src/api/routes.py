@@ -127,6 +127,7 @@ class FeedbackResponse(BaseModel):
     resultat_prediction: float
     input_user: str
     timestamp: float
+    saved_to_db: bool = False
 
 
 @router.post("/api/feedback", response_model=FeedbackResponse)
@@ -140,9 +141,16 @@ async def feedback_api(payload: FeedbackRequest, token: str = Depends(verify_tok
     last_metrics = read_last_inference_metrics()
 
     # Insérer en base (PostgreSQL)
+    saved_to_db = False
     try:
-        psycopg = importlib.import_module("psycopg")
-        with psycopg.connect(
+        try:
+            dbmod = importlib.import_module("psycopg")
+            connect = dbmod.connect
+        except Exception:
+            dbmod = importlib.import_module("psycopg2")
+            connect = dbmod.connect
+
+        with connect(
             host=DB_CONFIG["host"],
             port=DB_CONFIG["port"],
             dbname=DB_CONFIG["dbname"],
@@ -171,6 +179,7 @@ async def feedback_api(payload: FeedbackRequest, token: str = Depends(verify_tok
                     ),
                 )
                 conn.commit()
+                saved_to_db = True
     except Exception as e:
         # Ne pas bloquer la réponse si la DB échoue; on répond quand même
         pass
@@ -181,4 +190,5 @@ async def feedback_api(payload: FeedbackRequest, token: str = Depends(verify_tok
         resultat_prediction=payload.resultat_prediction,
         input_user=payload.input_user,
         timestamp=time.time(),
+        saved_to_db=saved_to_db,
     )
