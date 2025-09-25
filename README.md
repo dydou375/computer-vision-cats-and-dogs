@@ -94,6 +94,23 @@ python scripts/run_api.py
 
 ![Web APP](/docs/img/web.png "Application web du projet")
 
+## 🔒 Conformité RGPD (Base de données & Monitoring)
+
+Cette application enregistre certaines informations d’inférence et de feedback dans une base PostgreSQL afin d’améliorer le modèle et de suivre ses performances.
+
+- Finalités: amélioration continue du modèle (ré‑entraînement) et monitoring des performances (temps d’inférence, taux d’accord). Aucune finalité marketing.
+- Catégories de données: métadonnées techniques d’inférence (date, succès/erreur, temps d’inférence) et feedback utilisateur (positif/négatif). Pas de données personnelles identifiables (DPI) prévues par défaut. Si un fichier ou un identifiant utilisateur est stocké, il doit être pseudonymisé.
+- Base légale: intérêt légitime (optimisation du service) ou consentement si un lien peut être fait avec une personne identifiée/identifiable.
+- Minimisation: ne stocker que le strict nécessaire (résultats agrégés, noms de fichiers non sensibles/pseudonymisés). Éviter tout contenu d’image en base; conserver les images sur un stockage séparé et contrôlé si besoin.
+- Conservation: définir une politique (ex. 180 jours pour les logs d’inférence; 365 jours max pour les feedbacks) avec purge automatique (tâches planifiées/SQL).
+- Droits des personnes: prévoir des moyens de suppression/rectification si des données personnelles sont traitées; documenter les procédures.
+- Sécurité: restreindre l’accès à la base (comptes de service, rôles/ACL), chiffrer les mots de passe en variables d’environnement, activer TLS entre services si possible, sauvegardes chiffrées et testées.
+- Sous‑traitance/Transferts: si hébergement/cloud, s’assurer d’un accord de traitement (DPA) et de la localisation des données conforme (UE/clauses types).
+- Journalisation: tracer les accès administratifs et les opérations de maintenance.
+- DPIA: non requise a priori pour ces données techniques. À ré‑évaluer si des DPI sont ajoutées.
+
+Note: si vous ajoutez des champs pouvant identifier un utilisateur (email, ID, IP…), mettez à jour cette section, anonymisez/pseudonymisez les données et, si nécessaire, recueillez le consentement explicite.
+
 ## 📄 Licence
 
 MIT - voir LICENSE pour plus de détails.
