@@ -19,15 +19,63 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements/base.txt
-        pip install pytest
+        pip install pytest psycopg2-binary
     
     - name: Setup test environment
       run: |
         mkdir -p data/processed/models
         touch data/processed/models/cats_dogs_model.keras
     
-    - name: Start API and test
+    - name: Start API and test (unit, no DB)
       run: |
         python scripts/run_api.py &
         sleep 10
-        python tests/test_api_simple.py
+        python -m pytest tests/test_api_simple.py -v -s
+
+  test_db:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: computer-vision-cats-dogs
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" 
+          --health-interval 10s 
+          --health-timeout 5s 
+          --health-retries 5
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+    - name: Install dependencies
+      run: |
+        pip install -r requirements/base.txt
+        pip install pytest psycopg2-binary
+    - name: Init DB schema
+      env:
+        PGPASSWORD: postgres
+      run: |
+        sudo apt-get update && sudo apt-get install -y postgresql-client
+        psql -h localhost -U postgres -d computer-vision-cats-dogs -f scripts/init-db.sql
+    - name: Setup test environment
+      run: |
+        mkdir -p data/processed/models
+        touch data/processed/models/cats_dogs_model.keras
+    - name: Start API and run DB tests
+      env:
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_NAME: computer-vision-cats-dogs
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        RUN_DB_TESTS: "1"
+      run: |
+        python scripts/run_api.py &
+        sleep 10
+        python -m pytest -k "feedback_db_integration or metrics_endpoints" -v -s
