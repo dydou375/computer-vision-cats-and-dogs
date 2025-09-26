@@ -6,7 +6,9 @@
 help:
 	@echo "Commandes disponibles:"
 	@echo "  env          - Créer l'environnement virtuel et installer les dépendances"
-	@echo "  install      - Installer les dépendances dans l'environnement actuel"
+	@echo "  install      - Installer les dépendances de base"
+	@echo "  install-dev  - Installer les dépendances de développement"
+	@echo "  install-prod - Installer les dépendances de production"
 	@echo "  train        - Entraîner le modèle initial"
 	@echo "  retrain      - Ré-entraîner le modèle avec les données de feedback"
 	@echo "  retrain-check- Vérifier les conditions de ré-entraînement"
@@ -16,6 +18,8 @@ help:
 	@echo "  dashboard    - Lancer le dashboard de monitoring"
 	@echo "  test         - Exécuter les tests"
 	@echo "  clean        - Nettoyer les fichiers temporaires"
+	@echo "  clean-db     - Nettoyer les données de test de la base"
+	@echo "  stats-db     - Afficher les statistiques de la base"
 
 # Créer l'environnement virtuel et installer les dépendances
 env:
@@ -25,9 +29,17 @@ env:
 	pip install -r requirements\base.txt
 	pip install -r requirements\dev.txt
 
-# Installer les dépendances
+# Installer les dépendances de base
 install:
 	pip install -r requirements\base.txt
+
+# Installer les dépendances de développement
+install-dev:
+	pip install -r requirements\dev.txt
+
+# Installer les dépendances de production
+install-prod:
+	pip install -r requirements\prod.txt
 
 # Entraîner le modèle initial
 train:
@@ -64,8 +76,11 @@ test:
 # Nettoyer les fichiers temporaires
 clean:
 	@echo "Nettoyage des fichiers temporaires..."
-	@if exist "data\processed\models\backups" rmdir /s /q "data\processed\models\backups"
-	@if exist "logs" rmdir /s /q "logs"
-	@if exist "__pycache__" rmdir /s /q "__pycache__"
-	@for /d /r . %%d in (__pycache__) do @if exist "%%d" rmdir /s /q "%%d"
-	@echo "Nettoyage terminé"
+
+# Nettoyer les données de test de la base de données
+clean-db:
+	python scripts\cleanup_test_data.py --clean
+
+# Afficher les statistiques de la base de données
+stats-db:
+	python scripts\cleanup_test_data.py --stats
