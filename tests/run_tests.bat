@@ -17,12 +17,12 @@ if not exist "src\api\main.py" (
 echo Tests disponibles:
 echo 1. Tests API complets
 echo 2. Tests API simples
-echo 3. Tests métriques
+echo 3. Tests metriques
 echo 4. Tests feedback UI
 echo 5. Tests feedback messages
-echo 6. Tests feedback base de données
+echo 6. Tests feedback base de donnees
 echo 7. Tous les tests
-echo 8. Diagnostic base de données
+echo 8. Diagnostic base de donnees
 echo 9. Quitter
 echo.
 
@@ -50,7 +50,7 @@ if "%choice%"=="1" (
     python -m pytest tests/test_feedback_ui_message.py -v -s
 ) else if "%choice%"=="6" (
     echo.
-    echo Exécution des tests feedback base de données...
+    echo Exécution des tests feedback base de donnees...
     python -m pytest tests/test_feedback_db.py -v -s
 ) else if "%choice%"=="7" (
     echo.
@@ -58,7 +58,7 @@ if "%choice%"=="1" (
     python -m pytest tests/ -v -s
 ) else if "%choice%"=="8" (
     echo.
-    echo Diagnostic de la base de données...
+    echo Diagnostic de la base de donnees...
     python scripts/check_feedback_table.py
 ) else if "%choice%"=="9" (
     echo.
@@ -73,6 +73,6 @@ if "%choice%"=="1" (
 
 echo.
 echo ========================================
-echo Tests terminés!
+echo Tests termines!
 echo ========================================
 pause
