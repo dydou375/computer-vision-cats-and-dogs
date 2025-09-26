@@ -168,8 +168,8 @@ async def feedback_api(payload: FeedbackRequest, token: str = Depends(verify_tok
 
                 cur.execute(
                     """
-                    INSERT INTO feedback_user (feedback, date_feedback, resultat_prediction, input_user, inference_time_ms, success, filename)
-                    VALUES (%s, CURRENT_DATE, %s, %s, %s, %s, %s)
+                    INSERT INTO feedback_user (feedback, date_feedback, resultat_prediction, input_user, inference_time_ms, success)
+                    VALUES (%s, CURRENT_DATE, %s, %s, %s, %s)
                     RETURNING id_feedback_user
                     """,
                     (
@@ -178,7 +178,6 @@ async def feedback_api(payload: FeedbackRequest, token: str = Depends(verify_tok
                         payload.input_user,
                         inference_time_ms,
                         success,
-                        payload.filename,
                     ),
                 )
                 feedback_id = cur.fetchone()[0]
@@ -186,7 +185,9 @@ async def feedback_api(payload: FeedbackRequest, token: str = Depends(verify_tok
                 saved_to_db = True
     except Exception as e:
         # Ne pas bloquer la réponse si la DB échoue; on répond quand même
-        pass
+        print(f"Erreur lors de l'insertion en base de données: {e}")
+        import traceback
+        traceback.print_exc()
 
     return FeedbackResponse(
         status="received",
