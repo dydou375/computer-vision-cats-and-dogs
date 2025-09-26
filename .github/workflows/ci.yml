@@ -90,3 +90,14 @@ jobs:
         python scripts/run_api.py &
         sleep 10
         python -m pytest tests/test_feedback_db.py tests/test_metrics_api.py tests/test_api.py -v -s
+    
+    - name: Cleanup test data
+      env:
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_NAME: computer-vision-cats-dogs
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+      run: |
+        python scripts/cleanup_test_data.py --clean
+        echo "🧹 Données de test nettoyées"

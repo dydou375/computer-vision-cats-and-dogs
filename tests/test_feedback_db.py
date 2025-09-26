@@ -95,6 +95,15 @@ def test_feedback_database_negative():
     except requests.exceptions.RequestException as e:
         pytest.fail(f"Erreur lors du test d'enregistrement feedback négatif: {e}")
 
+# Nettoyage automatique après les tests
+def pytest_sessionfinish(session, exitstatus):
+    """Nettoyage automatique après les tests"""
+    try:
+        from tests.cleanup_after_tests import cleanup_after_tests
+        cleanup_after_tests()
+    except Exception as e:
+        print(f"⚠️  Erreur lors du nettoyage automatique: {e}")
+
 # Permet l'exécution directe du fichier
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
