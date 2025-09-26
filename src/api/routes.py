@@ -16,7 +16,6 @@ sys.path.insert(0, str(ROOT_DIR))
 from .auth import verify_token
 from src.models.predictor import CatDogPredictor
 from src.monitoring.metrics import time_inference, log_inference_time, read_last_inference_metrics
-from src.data.image_storage import ImageStorageManager
 from config.settings import DB_CONFIG, API_CONFIG
 
 # Configuration des templates
@@ -25,9 +24,8 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 router = APIRouter()
 
-# Initialisation du prédicteur et du gestionnaire d'images
+# Initialisation du prédicteur
 predictor = CatDogPredictor()
-image_storage = ImageStorageManager()
 
 @router.get("/", response_class=HTMLResponse)
 async def welcome(request: Request):
@@ -66,12 +64,9 @@ async def inference_page(request: Request):
 @time_inference  # Décorateur de monitoring
 async def predict_api(
     file: UploadFile = File(...),
-    token: str = Depends(verify_token),
-    store_image: bool = True,
-    user_id: str = None,
-    session_id: str = None
+    token: str = Depends(verify_token)
 ):
-    """API de prédiction avec monitoring et stockage optionnel des images"""
+    """API de prédiction simple avec monitoring"""
     if not predictor.is_loaded():
         raise HTTPException(status_code=503, detail="Modèle non disponible")
     
@@ -82,21 +77,6 @@ async def predict_api(
         image_data = await file.read()
         result = predictor.predict(image_data)
         
-        # Stocker l'image si demandé
-        image_id = None
-        if store_image:
-            try:
-                image_metadata = image_storage.store_user_image(
-                    image_data=image_data,
-                    filename=file.filename,
-                    user_id=user_id,
-                    session_id=session_id
-                )
-                image_id = image_metadata['id_image']
-            except Exception as e:
-                print(f"Erreur lors du stockage de l'image: {e}")
-                # Ne pas faire échouer la prédiction si le stockage échoue
-        
         response_data = {
             "filename": file.filename,
             "prediction": result["prediction"],
@@ -104,15 +84,12 @@ async def predict_api(
             "probabilities": {
                 "cat": f"{result['probabilities']['cat']:.2%}",
                 "dog": f"{result['probabilities']['dog']:.2%}"
-            },
-            "image_stored": image_id is not None,
-            "image_id": image_id
+            }
         }
         
         return response_data
         
     except Exception as e:
-        # Simple gestion d'erreur sans code unreachable
         raise HTTPException(status_code=500, detail=f"Erreur de prédiction: {str(e)}")
 
 @router.get("/api/info")
@@ -142,7 +119,7 @@ class FeedbackRequest(BaseModel):
     feedback: FeedbackType
     resultat_prediction: float
     input_user: str
-    image_id: Optional[int] = None
+    filename: Optional[str] = None
 
 
 class FeedbackResponse(BaseModel):
@@ -191,8 +168,8 @@ async def feedback_api(payload: FeedbackRequest, token: str = Depends(verify_tok
 
                 cur.execute(
                     """
-                    INSERT INTO feedback_user (feedback, date_feedback, resultat_prediction, input_user, inference_time_ms, success)
-                    VALUES (%s, CURRENT_DATE, %s, %s, %s, %s)
+                    INSERT INTO feedback_user (feedback, date_feedback, resultat_prediction, input_user, inference_time_ms, success, filename)
+                    VALUES (%s, CURRENT_DATE, %s, %s, %s, %s, %s)
                     RETURNING id_feedback_user
                     """,
                     (
@@ -201,15 +178,12 @@ async def feedback_api(payload: FeedbackRequest, token: str = Depends(verify_tok
                         payload.input_user,
                         inference_time_ms,
                         success,
+                        payload.filename,
                     ),
                 )
                 feedback_id = cur.fetchone()[0]
                 conn.commit()
                 saved_to_db = True
-                
-                # Lier l'image au feedback si image_id est fourni
-                if payload.image_id and saved_to_db:
-                    image_storage.link_image_to_feedback(payload.image_id, feedback_id)
     except Exception as e:
         # Ne pas bloquer la réponse si la DB échoue; on répond quand même
         pass
@@ -325,13 +299,5 @@ async def metrics_7d():
         raise HTTPException(status_code=500, detail=f"Erreur métriques: {e}")
 
 
-@router.get("/api/images/stats")
-async def images_stats():
-    """Statistiques des images stockées."""
-    try:
-        stats = image_storage.get_storage_stats()
-        return stats
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur statistiques images: {e}")
 
 
