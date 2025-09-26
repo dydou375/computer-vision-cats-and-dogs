@@ -75,7 +75,7 @@ async def predict_api(
     try:
         image_data = await file.read()
         result = predictor.predict(image_data)
-
+        
         response_data = {
             "filename": file.filename,
             "prediction": result["prediction"],
@@ -85,9 +85,9 @@ async def predict_api(
                 "dog": f"{result['probabilities']['dog']:.2%}"
             }
         }
-
+        
         return response_data
-
+        
     except Exception as e:
         # Simple gestion d'erreur sans code unreachable
         raise HTTPException(status_code=500, detail=f"Erreur de prédiction: {str(e)}")
