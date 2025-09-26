@@ -6,7 +6,9 @@
 help:
 	@echo "Commandes disponibles:"
 	@echo "  env          - Créer l'environnement virtuel et installer les dépendances"
-	@echo "  install      - Installer les dépendances dans l'environnement actuel"
+	@echo "  install      - Installer les dépendances de base"
+	@echo "  install-dev  - Installer les dépendances de développement"
+	@echo "  install-prod - Installer les dépendances de production"
 	@echo "  train        - Entraîner le modèle initial"
 	@echo "  retrain      - Ré-entraîner le modèle avec les données de feedback"
 	@echo "  retrain-check- Vérifier les conditions de ré-entraînement"
@@ -25,9 +27,17 @@ env:
 	pip install -r requirements\base.txt
 	pip install -r requirements\dev.txt
 
-# Installer les dépendances
+# Installer les dépendances de base
 install:
 	pip install -r requirements\base.txt
+
+# Installer les dépendances de développement
+install-dev:
+	pip install -r requirements\dev.txt
+
+# Installer les dépendances de production
+install-prod:
+	pip install -r requirements\prod.txt
 
 # Entraîner le modèle initial
 train:

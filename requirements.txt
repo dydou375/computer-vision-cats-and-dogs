@@ -1,0 +1,5 @@
+# Fichier de requirements principal
+# Pour une installation rapide: pip install -r requirements.txt
+
+# Inclure les dépendances de base
+-r requirements/base.txt

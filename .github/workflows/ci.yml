@@ -18,8 +18,13 @@ jobs:
     
     - name: Install dependencies
       run: |
-        pip install -r requirements/base.txt
-        pip install pytest psycopg2-binary
+        pip install --upgrade pip
+        pip install -r requirements/dev.txt
+    
+    - name: Verify requirements
+      run: |
+        pip check
+        python -c "import fastapi, uvicorn, tensorflow, psycopg2; print('All core dependencies imported successfully')"
     
     - name: Setup test environment
       run: |
@@ -30,7 +35,7 @@ jobs:
       run: |
         python scripts/run_api.py &
         sleep 10
-        python -m pytest tests/test_api_simple.py -v -s
+        python -m pytest tests/test_api_simple.py tests/test_feedback_ui.py tests/test_feedback_ui_message.py -v -s
 
   test_db:
     runs-on: ubuntu-latest
@@ -55,8 +60,14 @@ jobs:
         python-version: 3.11
     - name: Install dependencies
       run: |
-        pip install -r requirements/base.txt
-        pip install pytest psycopg2-binary
+        pip install --upgrade pip
+        pip install -r requirements/dev.txt
+    
+    - name: Verify requirements
+      run: |
+        pip check
+        python -c "import fastapi, uvicorn, tensorflow, psycopg2; print('All core dependencies imported successfully')"
+    
     - name: Init DB schema
       env:
         PGPASSWORD: postgres
@@ -78,4 +89,4 @@ jobs:
       run: |
         python scripts/run_api.py &
         sleep 10
-        python -m pytest -k "feedback_db_integration or metrics_endpoints" -v -s
+        python -m pytest tests/test_feedback_db.py tests/test_metrics_api.py tests/test_api.py -v -s
