@@ -252,34 +252,6 @@ graph TB
     E --> H[CSV Logs]
 ```
 
-### Flux d'Interaction
-
-```mermaid
-sequenceDiagram
-    participant U as Utilisateur
-    participant W as Web Interface
-    participant A as FastAPI
-    participant M as Keras Model
-    participant D as PostgreSQL
-    
-    U->>W: Upload image
-    W->>A: POST /api/predict
-    A->>M: Prédiction
-    M-->>A: Résultat
-    A->>D: Sauvegarder
-    A-->>W: Réponse
-    W-->>U: Affichage
-```
-
-### Flux de Données
-
-1. **Upload d'image** → Client envoie l'image via POST
-2. **Prédiction** → Modèle Keras classifie l'image
-3. **Réponse** → API retourne prédiction + confiance
-4. **Feedback** → Utilisateur évalue la prédiction
-5. **Stockage** → Données sauvegardées en base PostgreSQL
-6. **Monitoring** → Métriques enregistrées pour analyse
-
 ### Technologies Utilisées
 
 - **Backend** : FastAPI (Python 3.8+)
@@ -478,13 +450,6 @@ ORDER BY date_feedback DESC;
 3. **Commiter** les changements : `git commit -m 'Ajout nouvelle fonctionnalité'`
 4. **Pousser** vers la branche : `git push origin feature/nouvelle-fonctionnalite`
 5. **Créer** une Pull Request
-
-### Standards de Code
-
-- **Python** : PEP 8
-- **Tests** : Couverture minimale 80%
-- **Documentation** : Docstrings pour toutes les fonctions
-- **Commits** : Messages clairs et descriptifs
 
 ## 📄 Licence
 
