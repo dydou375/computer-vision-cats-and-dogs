@@ -242,108 +242,33 @@ python scripts/run_api.py
 
 ```mermaid
 graph TB
-    subgraph "Frontend"
-        A[🌐 Web Interface<br/>Jinja2 + Bootstrap]
-        B[📱 Mobile/Desktop<br/>Browser]
-    end
+    A[Web Interface] --> B[FastAPI Server]
+    B --> C[Keras Model]
+    B --> D[PostgreSQL]
+    B --> E[Monitoring]
     
-    subgraph "API Layer"
-        C[🚀 FastAPI Server<br/>Port 8000]
-        D[🔐 Authentication<br/>Bearer Token]
-        E[📊 API Endpoints<br/>/predict, /feedback, /metrics]
-    end
-    
-    subgraph "Machine Learning"
-        F[🤖 CatDogPredictor<br/>Python Class]
-        G[🧠 Keras Model<br/>CNN Architecture]
-        H[📁 Model Files<br/>.keras format]
-    end
-    
-    subgraph "Data Layer"
-        I[🗄️ PostgreSQL<br/>Database]
-        J[📋 feedback_user<br/>Table]
-        K[📊 monitoring_inference<br/>CSV Logs]
-    end
-    
-    subgraph "Monitoring"
-        L[📈 Metrics System<br/>Performance Tracking]
-        M[⏱️ Inference Time<br/>Latency Monitoring]
-        N[📊 Success Rate<br/>Error Tracking]
-    end
-    
-    %% Frontend to API
-    A --> C
-    B --> C
-    
-    %% API Internal Flow
-    C --> D
-    C --> E
-    E --> F
-    
-    %% ML Flow
-    F --> G
-    G --> H
-    
-    %% Data Persistence
-    C --> I
-    I --> J
-    C --> K
-    
-    %% Monitoring Flow
-    C --> L
-    L --> M
-    L --> N
-    L --> I
-    
-    %% Response Flow
-    F --> C
-    C --> A
-    
-    %% Styling
-    classDef frontend fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef api fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef ml fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
-    classDef data fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef monitoring fill:#fce4ec,stroke:#880e4f,stroke-width:2px
-    
-    class A,B frontend
-    class C,D,E api
-    class F,G,H ml
-    class I,J,K data
-    class L,M,N monitoring
+    C --> F[Model Files]
+    D --> G[Feedback Data]
+    E --> H[CSV Logs]
 ```
 
-### Flux d'Interaction (Séquence)
+### Flux d'Interaction
 
 ```mermaid
 sequenceDiagram
-    participant U as 👤 Utilisateur
-    participant W as 🌐 Web Interface
-    participant A as 🚀 FastAPI
-    participant M as 🤖 ML Model
-    participant D as 🗄️ Database
-    participant S as 📊 Monitoring
+    participant U as Utilisateur
+    participant W as Web Interface
+    participant A as FastAPI
+    participant M as Keras Model
+    participant D as PostgreSQL
     
-    Note over U,S: Processus de Prédiction
-    
-    U->>W: 1. Upload image
-    W->>A: 2. POST /api/predict
-    A->>A: 3. Authentification
-    A->>M: 4. Prédiction ML
-    M->>M: 5. Classification CNN
-    M-->>A: 6. Résultat + confiance
-    A->>S: 7. Enregistrer métriques
-    A-->>W: 8. Réponse JSON
-    W-->>U: 9. Affichage résultat
-    
-    Note over U,S: Processus de Feedback
-    
-    U->>W: 10. Évaluer prédiction
-    W->>A: 11. POST /api/feedback
-    A->>D: 12. Sauvegarder feedback
-    A->>S: 13. Mettre à jour métriques
-    A-->>W: 14. Confirmation
-    W-->>U: 15. Feedback enregistré
+    U->>W: Upload image
+    W->>A: POST /api/predict
+    A->>M: Prédiction
+    M-->>A: Résultat
+    A->>D: Sauvegarder
+    A-->>W: Réponse
+    W-->>U: Affichage
 ```
 
 ### Flux de Données
