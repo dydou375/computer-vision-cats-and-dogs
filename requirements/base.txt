@@ -1,0 +1,29 @@
+# Dépendances de base pour le projet Cats vs Dogs Classifier
+# Installation: pip install -r requirements/base.txt
+
+# Framework web
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# Templates et interface
+jinja2>=3.1.2
+
+# Base de données
+psycopg2-binary>=2.9.7
+# Alternative: psycopg[binary]>=3.1.0
+
+# Machine Learning et Computer Vision
+tensorflow>=2.13.0
+keras>=2.13.1
+numpy>=1.24.0
+pillow>=10.0.0
+
+# Traitement des données
+pandas>=2.0.0
+
+# Monitoring et métriques
+python-dotenv>=1.0.0
+
+# Utilitaires
+pathlib2>=2.3.7; python_version < "3.4"
