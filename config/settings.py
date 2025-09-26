@@ -33,6 +33,15 @@ API_CONFIG = {
     "model_path": MODELS_DIR / "cats_dogs_model.keras",
 }
 
+# Configuration Base de Données (PostgreSQL)
+DB_CONFIG = {
+    "host": os.environ.get("DB_HOST", "localhost"),
+    "port": int(os.environ.get("DB_PORT", 5432)),
+    "dbname": os.environ.get("DB_NAME", "computer-vision-cats-dogs"),
+    "user": os.environ.get("DB_USER", "postgres"),
+    "password": os.environ.get("DB_PASSWORD", "postgres"),
+}
+
 # URLs de données
 DATA_URLS = {
     "kaggle_cats_dogs": "https://download.microsoft.com/download/3/E/1/3E1C3F21-ECDB-4869-8368-6DEBA77B919F/kagglecatsanddogs_5340.zip"

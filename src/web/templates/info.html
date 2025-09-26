@@ -119,6 +119,26 @@
             </div>
         </div>
 
+        <!-- Monitoring: Métriques depuis la base -->
+        <div class="card mt-4">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">Monitoring (DB)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-12">
+                        <canvas id="latencyChart" style="max-height: 320px;"></canvas>
+                    </div>
+                </div>
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <canvas id="volumeChart" style="max-height: 320px;"></canvas>
+                    </div>
+                </div>
+                <pre id="summary7d" class="mt-4 bg-light p-2" style="max-height: 240px; overflow: auto;"></pre>
+            </div>
+        </div>
+
         <div class="card mt-4">
             <div class="card-header bg-info text-white">
                 <h5 class="mb-0">API Usage</h5>
@@ -204,4 +224,68 @@ Content-Type: multipart/form-data</code></pre>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(async function() {
+  async function fetchJSON(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  try {
+    const daily = await fetchJSON('/api/metrics/daily');
+    const m7d = await fetchJSON('/api/metrics/7d');
+
+    const labels = daily.map(x => x.day);
+    const p50 = daily.map(x => x.inf_latency_p50_ms);
+    const p90 = daily.map(x => x.inf_latency_p90_ms);
+    const p99 = daily.map(x => x.inf_latency_p99_ms);
+
+    new Chart(document.getElementById('latencyChart'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'p50 (ms)', data: p50, borderColor: '#22c55e', tension: 0.2 },
+          { label: 'p90 (ms)', data: p90, borderColor: '#f59e0b', tension: 0.2 },
+          { label: 'p99 (ms)', data: p99, borderColor: '#ef4444', tension: 0.2 }
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    const volume = daily.map(x => x.inf_count);
+    const agreeRate = daily.map(x => {
+      const pos = x.feedback_pos || 0; const neg = x.feedback_neg || 0;
+      const tot = pos + neg; return tot > 0 ? (pos / tot * 100).toFixed(1) : null;
+    });
+
+    new Chart(document.getElementById('volumeChart'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Volume', data: volume, backgroundColor: '#60a5fa' },
+          { label: 'Taux accord (%)', data: agreeRate, type: 'line', yAxisID: 'y1', borderColor: '#8b5cf6' }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        scales: { y: { beginAtZero: true }, y1: { beginAtZero: true, position: 'right' } },
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+
+    document.getElementById('summary7d').textContent = JSON.stringify(m7d, null, 2);
+  } catch (e) {
+    const el = document.getElementById('summary7d');
+    if (el) el.textContent = 'Erreur chargement metrics: ' + e;
+  }
+})();
+</script>
 {% endblock %}

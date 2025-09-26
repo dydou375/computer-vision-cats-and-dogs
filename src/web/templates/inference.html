@@ -47,15 +47,86 @@
                 </div>
                 
                 <div id="result" class="mt-4" style="display: none;"></div>
+                
+                <!-- Section Feedback -->
+                <div id="feedbackSection" class="mt-4" style="display: none;">
+                    <div class="card border-info">
+                        <div class="card-body text-center">
+                            <h6 class="card-title mb-3">
+                                <i class="bi bi-chat-heart"></i> Cette prédiction vous semble-t-elle correcte ?
+                            </h6>
+                            <div class="d-flex justify-content-center gap-3">
+                                <button type="button" class="btn btn-outline-success feedback-btn" data-feedback="positive" id="thumbsUp">
+                                    <i class="bi bi-hand-thumbs-up-fill"></i>
+                                    <span class="ms-2">Correct</span>
+                                </button>
+                                <button type="button" class="btn btn-outline-danger feedback-btn" data-feedback="negative" id="thumbsDown">
+                                    <i class="bi bi-hand-thumbs-down-fill"></i>
+                                    <span class="ms-2">Incorrect</span>
+                                </button>
+                            </div>
+                            <div id="feedbackMessage" class="mt-3" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
+
+<style>
+.feedback-btn {
+    padding: 12px 24px;
+    border-radius: 25px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    min-width: 120px;
+}
+
+.feedback-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.feedback-btn i {
+    font-size: 1.2em;
+}
+
+.feedback-btn.selected {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 3px rgba(var(--bs-success-rgb), 0.25);
+}
+
+.feedback-btn[data-feedback="positive"].selected {
+    background-color: var(--bs-success);
+    border-color: var(--bs-success);
+    color: white;
+}
+
+.feedback-btn[data-feedback="negative"].selected {
+    background-color: var(--bs-danger);
+    border-color: var(--bs-danger);
+    color: white;
+}
+
+.feedback-animation {
+    animation: feedbackPulse 0.6s ease-out;
+}
+
+@keyframes feedbackPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
+let currentPredictionId = null;
+let lastPredictionData = null; // { confidenceFloat, filename }
+
 document.getElementById('imageFile').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
@@ -68,6 +139,8 @@ document.getElementById('imageFile').addEventListener('change', function(e) {
         };
         reader.readAsDataURL(file);
     }
+    // Cacher le feedback lors du changement d'image
+    document.getElementById('feedbackSection').style.display = 'none';
 });
 
 document.getElementById('predictionForm').addEventListener('submit', async function(e) {
@@ -77,6 +150,7 @@ document.getElementById('predictionForm').addEventListener('submit', async funct
     const tokenInput = document.getElementById('apiToken');
     const loading = document.getElementById('loading');
     const result = document.getElementById('result');
+    const feedbackSection = document.getElementById('feedbackSection');
     const predictBtn = document.getElementById('predictBtn');
     
     const file = fileInput.files[0];
@@ -89,7 +163,11 @@ document.getElementById('predictionForm').addEventListener('submit', async funct
     
     loading.style.display = 'block';
     result.style.display = 'none';
+    feedbackSection.style.display = 'none';
     predictBtn.disabled = true;
+    
+    // Réinitialiser les boutons de feedback
+    resetFeedbackButtons();
     
     try {
         const formData = new FormData();
@@ -110,6 +188,16 @@ document.getElementById('predictionForm').addEventListener('submit', async funct
             const emoji = isDog ? '🐶' : '🐱';
             const bgColor = isDog ? 'bg-warning' : 'bg-success';
             
+            // Stocker l'ID de prédiction pour le feedback
+            currentPredictionId = data.prediction_id || Date.now();
+            // Conserver les infos nécessaires pour le feedback
+            const confStr = (data.confidence || '').toString().replace('%','').trim();
+            const confidenceFloat = isNaN(parseFloat(confStr)) ? null : (parseFloat(confStr) / 100);
+            lastPredictionData = {
+                confidenceFloat: confidenceFloat,
+                filename: data.filename || (file ? file.name : null)
+            };
+            
             result.innerHTML = `
                 <div class="alert ${bgColor} result-card">
                     <h5>${emoji} Résultat de la prédiction</h5>
@@ -127,6 +215,10 @@ document.getElementById('predictionForm').addEventListener('submit', async funct
                     </div>
                 </div>
             `;
+            
+            // Afficher la section feedback
+            feedbackSection.style.display = 'block';
+            
         } else {
             result.innerHTML = `
                 <div class="alert alert-danger">
@@ -151,5 +243,110 @@ document.getElementById('predictionForm').addEventListener('submit', async funct
     loading.style.display = 'none';
     predictBtn.disabled = false;
 });
+
+// Fonction pour attacher les événements de feedback
+function attachFeedbackEvents() {
+    document.querySelectorAll('.feedback-btn').forEach(button => {
+        button.addEventListener('click', async function() {
+            const feedbackType = this.dataset.feedback;
+            const feedbackMessage = document.getElementById('feedbackMessage');
+            
+            // Désactiver tous les boutons temporairement
+            document.querySelectorAll('.feedback-btn').forEach(btn => btn.disabled = true);
+            
+            // Ajouter animation
+            this.classList.add('feedback-animation');
+            
+            // Cacher immédiatement les boutons pour éviter les clics multiples
+            const feedbackSection = document.getElementById('feedbackSection');
+            feedbackSection.style.opacity = '0.5';
+            feedbackSection.style.pointerEvents = 'none';
+            
+            try {
+                // Préparer le corps attendu par l'API backend
+                const body = {
+                    feedback: feedbackType,
+                    resultat_prediction: (lastPredictionData && lastPredictionData.confidenceFloat != null) ? lastPredictionData.confidenceFloat : 0.0,
+                    input_user: (lastPredictionData && lastPredictionData.filename) ? lastPredictionData.filename : 'unknown'
+                };
+
+                const response = await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${document.getElementById('apiToken').value}`
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                if (response.ok) {
+                    const message = feedbackType === 'positive' ? 
+                        '✅ Merci ! Votre feedback nous aide à améliorer le modèle.' :
+                        '📝 Merci pour votre retour ! Nous prendrons cela en compte pour améliorer nos prédictions.';
+                    
+                    // Remplacer les boutons par un message de confirmation permanent
+                    const feedbackButtons = document.querySelector('.d-flex.justify-content-center.gap-3');
+                    feedbackButtons.innerHTML = `
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            <strong>Feedback enregistré !</strong> ${message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    `;
+                    
+                    // Masquer le message de feedback précédent s'il existe
+                    feedbackMessage.style.display = 'none';
+                    
+                } else {
+                    throw new Error('Erreur lors de l\'envoi du feedback');
+                }
+                
+            } catch (error) {
+                console.error('Erreur feedback:', error);
+                
+                // Remplacer les boutons par un message d'erreur
+                const feedbackButtons = document.querySelector('.d-flex.justify-content-center.gap-3');
+                feedbackButtons.innerHTML = `
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <strong>Erreur !</strong> Impossible d'enregistrer votre feedback. Réessayez plus tard.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `;
+                
+                // Masquer le message de feedback précédent s'il existe
+                feedbackMessage.style.display = 'none';
+            }
+        });
+    });
+}
+
+// Attacher les événements au chargement de la page
+attachFeedbackEvents();
+
+function resetFeedbackButtons() {
+    // Restaurer les boutons originaux
+    const feedbackButtons = document.querySelector('.d-flex.justify-content-center.gap-3');
+    feedbackButtons.innerHTML = `
+        <button type="button" class="btn btn-outline-success feedback-btn" data-feedback="positive" id="thumbsUp">
+            <i class="bi bi-hand-thumbs-up-fill"></i>
+            <span class="ms-2">Correct</span>
+        </button>
+        <button type="button" class="btn btn-outline-danger feedback-btn" data-feedback="negative" id="thumbsDown">
+            <i class="bi bi-hand-thumbs-down-fill"></i>
+            <span class="ms-2">Incorrect</span>
+        </button>
+    `;
+    
+    // Réattacher les événements aux nouveaux boutons
+    attachFeedbackEvents();
+    
+    document.getElementById('feedbackMessage').style.display = 'none';
+    
+    // Réinitialiser l'opacité et les événements de pointeur
+    const feedbackSection = document.getElementById('feedbackSection');
+    feedbackSection.style.opacity = '1';
+    feedbackSection.style.pointerEvents = 'auto';
+}
 </script>
 {% endblock %}

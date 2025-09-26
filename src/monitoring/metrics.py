@@ -39,6 +39,32 @@ def log_inference_time(inference_time_ms: float, success: bool = True):
             success
         ])
 
+
+def read_last_inference_metrics():
+    """Lire la dernière ligne des métriques d'inférence (si disponible)."""
+    ensure_monitoring_file()
+    last_row = None
+    try:
+        with open(MONITORING_FILE, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            next(reader, None)  # skip header
+            for row in reader:
+                last_row = row
+    except FileNotFoundError:
+        return None
+
+    if not last_row:
+        return None
+
+    try:
+        return {
+            "timestamp": last_row[0],
+            "inference_time_ms": float(last_row[1]),
+            "success": last_row[2] in (True, "True", "true", "1", 1),
+        }
+    except Exception:
+        return None
+
 def time_inference(func):
     """Décorateur pour mesurer le temps d'inférence"""
     @wraps(func)
