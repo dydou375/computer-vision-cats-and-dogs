@@ -1,0 +1,37 @@
+{
+  "retraining": {
+    "conditions": {
+      "days_back": 30,
+      "min_feedback_count": 100,
+      "min_negative_feedback": 20,
+      "min_positive_rate": 0.7
+    },
+    "training": {
+      "epochs": 5,
+      "learning_rate": 0.0001,
+      "batch_size": 64,
+      "image_size": [128, 128]
+    },
+    "deployment": {
+      "improvement_threshold": 0.02,
+      "backup_models": true,
+      "cleanup_old_models": true,
+      "keep_last_models": 5
+    },
+    "monitoring": {
+      "log_level": "INFO",
+      "save_metrics": true,
+      "alert_on_failure": true
+    }
+  },
+  "scheduler": {
+    "enabled": true,
+    "check_interval_hours": 6,
+    "retrain_interval_hours": 24,
+    "timeout_minutes": 60
+  },
+  "database": {
+    "feedback_retention_days": 180,
+    "metrics_retention_days": 365
+  }
+}
